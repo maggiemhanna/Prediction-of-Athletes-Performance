@@ -2,7 +2,7 @@
 title: "CodeBook"
 author: "Maggie Mhanna"
 date: "23/03/2017"
-output: html_document
+output: md_document
 ---
 
 ```{r setup, include=FALSE}
