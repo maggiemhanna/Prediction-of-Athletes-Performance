@@ -1,0 +1,109 @@
+---
+title: "CodeBook"
+author: "Maggie Mhanna"
+date: "23/03/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = TRUE,  comment = FALSE, warning = FALSE)
+```
+
+## Loading Data
+
+```{r}
+training <- read.csv("pml-training.csv", na.strings=c("", "NA", "NULL"))
+testing <- read.csv("pml-testing.csv", na.strings=c("", "NA", "NULL"))
+dim(training)
+dim(testing)
+```
+
+## Cleaning and Preparing Data
+
+Remove variables that we believe have too many NA values.
+
+```{r}
+colSums(is.na(training))
+
+training <- training [ , colSums(is.na(training)) == 0]
+dim(training)
+```
+
+Remove unrelevant variables. There are some unrelevant variables that can be removed as they are unlikely to be related to dependent variable.
+
+```{r}
+library(dplyr)
+training <- select(training, -c(X, user_name, raw_timestamp_part_1, raw_timestamp_part_2, cvtd_timestamp, new_window, num_window))
+dim(training)
+```
+
+Remove near zero variance predictors using nearZeroVar from caret library
+
+```{R}
+library(caret)
+training <- training[ ,nearZeroVar(training, saveMetrics = TRUE)$nzv == FALSE]
+```
+
+Remove highly correlated variables 90% 
+
+```{r}
+corrMatrix <- cor(select(training, -classe))
+training <- training[ , -findCorrelation(corrMatrix)]
+dim(training)
+```
+
+We can now split data into training and cross validation. There's already a testing set. 
+
+```{r}
+set.seed(3333)
+inTrain <- createDataPartition(y = training$classe, p = 0.7, list = FALSE)
+validation <- training[-inTrain, ]
+training <- training[inTrain, ]
+```
+
+## Model Fitting
+
+### Predicting with random forest
+
+Using train from the caret package takes too much time. That why I will use the randomForest command from randomForest Package.
+
+```{r}
+set.seed(3333)
+library(randomForest)
+fit.rf <- randomForest(classe ~. , data=training)
+confusionMatrix(validation$classe, predict(fit.rf, validation))
+```
+
+The method presents an accuracy of 0.9939 on the validation set which is very good.
+
+### Predicting with trees
+
+Using the tree package
+
+```{r}
+set.seed(3333)
+library(tree)
+fit.tree <- tree(classe ~. , data=training)
+confusionMatrix(validation$classe, predict(fit.tree, validation, type = "class"))
+```
+
+Using the caret package
+
+```{r}
+set.seed(3333)
+library(caret)
+library(rattle)
+fit.rpart <- train(classe ~. , data=training, method="rpart")
+fancyRpartPlot(fit.rpart$finalModel)
+confusionMatrix(validation$classe, predict(fit.rpart, validation))
+```
+
+Using the tree package we get an accuracy of 70% whereas using the caret package, we get an accuracy of 50%. 
+
+## Applying Results on testing Set
+
+We choose the random forest model and predict classe on the testing set.
+
+```{r}
+predict(fit.rf, testing)
+```
